@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchUpcomingAnime, fetchUpcomingManga, type ReleaseItem } from "@/lib/anilist";
+import { fetchUpcomingAnime, fetchUpcomingManga, searchAnime, searchManga, type ReleaseItem } from "@/lib/anilist";
 import { fetchUpcomingMovies, fetchUpcomingTV, searchMovies, searchTV } from "@/lib/tmdb";
-import { fetchUpcomingGames } from "@/lib/games";
+import { fetchUpcomingGames, searchGames } from "@/lib/games";
 
 export const dynamic = "force-dynamic";
 
@@ -15,15 +15,13 @@ export async function GET(request: NextRequest) {
   try {
     let results: ReleaseItem[];
 
-    if (q && (category === "movie" || category === "tv" || category === "all")) {
-      const cat = category === "all" ? "both" : category;
+    if (q) {
       results = [];
-      if (cat === "movie" || cat === "both") results.push(...await searchMovies(q, year || undefined));
-      if (cat === "tv" || cat === "both") results.push(...await searchTV(q, year || undefined));
-    } else if (q) {
-      const all = await fetchAll(category, region);
-      const lower = q.toLowerCase();
-      results = all.filter((i: ReleaseItem) => i.title.toLowerCase().includes(lower) || i.titleOrig.toLowerCase().includes(lower));
+      if (category === "all" || category === "movie") results.push(...await searchMovies(q, year || undefined));
+      if (category === "all" || category === "tv") results.push(...await searchTV(q, year || undefined));
+      if (category === "all" || category === "anime") results.push(...await searchAnime(q));
+      if (category === "all" || category === "manga") results.push(...await searchManga(q));
+      if (category === "all" || category === "game") results.push(...await searchGames(q));
     } else {
       results = await fetchAll(category, region);
     }
