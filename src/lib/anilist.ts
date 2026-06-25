@@ -119,32 +119,33 @@ function mapMangaToRelease(item: AniListMedia): ReleaseItem {
   };
 }
 
-export async function fetchUpcomingAnime(): Promise<ReleaseItem[]> {
+async function anilistFetch(query: string): Promise<AniListMedia[]> {
   const res = await fetch(ANILIST_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      query: UPCOMING_ANIME_QUERY,
-      variables: { page: 1 },
-    }),
-  } as RequestInit & { next?: { revalidate: number } });
+    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    body: JSON.stringify({ query, variables: { page: 1 } }),
+  });
+
+  if (!res.ok) {
+    console.error(`AniList HTTP ${res.status}`);
+    return [];
+  }
 
   const json = await res.json();
-  const media: AniListMedia[] = json?.data?.Page?.media || [];
+  if (json.errors) {
+    console.error("AniList GraphQL errors:", JSON.stringify(json.errors));
+    return [];
+  }
+
+  return json?.data?.Page?.media || [];
+}
+
+export async function fetchUpcomingAnime(): Promise<ReleaseItem[]> {
+  const media = await anilistFetch(UPCOMING_ANIME_QUERY);
   return media.map(mapAnimeToRelease);
 }
 
 export async function fetchUpcomingManga(): Promise<ReleaseItem[]> {
-  const res = await fetch(ANILIST_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      query: UPCOMING_MANGA_QUERY,
-      variables: { page: 1 },
-    }),
-  } as RequestInit & { next?: { revalidate: number } });
-
-  const json = await res.json();
-  const media: AniListMedia[] = json?.data?.Page?.media || [];
+  const media = await anilistFetch(UPCOMING_MANGA_QUERY);
   return media.map(mapMangaToRelease);
 }

@@ -3,12 +3,15 @@ import { fetchUpcomingAnime, fetchUpcomingManga } from "@/lib/anilist";
 import { fetchUpcomingMovies, fetchUpcomingTV } from "@/lib/tmdb";
 import { fetchUpcomingGames } from "@/lib/games";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const category = searchParams.get("category") || "all";
 
   try {
     let results;
+
     switch (category) {
       case "anime": results = await fetchUpcomingAnime(); break;
       case "manga": results = await fetchUpcomingManga(); break;
@@ -26,12 +29,15 @@ export async function GET(request: NextRequest) {
         }
       }
     }
+
     return NextResponse.json(results, {
       status: 200,
-      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=60" },
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=30" },
     });
-  } catch (error) {
-    console.error("API error:", error);
-    return NextResponse.json({ error: "Failed to fetch data" }, { status: 500 });
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: "Failed", detail: error?.message || String(error) },
+      { status: 500 }
+    );
   }
 }
