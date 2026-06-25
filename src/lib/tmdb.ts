@@ -6,6 +6,7 @@ interface TMDBItem {
   poster_path: string | null; backdrop_path: string | null;
   release_date?: string; first_air_date?: string;
   genre_ids: number[]; vote_average: number;
+  overview: string;
 }
 
 const GENRE_MAP: Record<number, string> = {
@@ -18,25 +19,31 @@ const GENRE_MAP: Record<number, string> = {
 
 import type { ReleaseItem } from "./anilist";
 
+function getAuthHeader(): Record<string, string> {
+  const token = process.env.TMDB_TOKEN;
+  if (!token) return {};
+  return { Authorization: `Bearer ${token}` };
+}
+
 function mapToRelease(item: TMDBItem, category: "movie" | "tv"): ReleaseItem {
   const title = item.title || item.name || "Unbekannt";
   const date = item.release_date || item.first_air_date || "";
   const image = item.poster_path ? IMG_BASE + "/w500" + item.poster_path : "";
   const banner = item.backdrop_path ? IMG_BASE + "/w1280" + item.backdrop_path : null;
-  const genres = item.genre_ids.slice(0, 4).map((g: number) => GENRE_MAP[g] || "Unbekannt");
+  const genres = item.genre_ids.slice(0, 4).map((g: number) => GENRE_MAP[g] || "");
   const fmt = date ? new Date(date).toLocaleDateString("de-DE", { year: "numeric", month: "long", day: "numeric" }) : "TBA";
-  return { id: category + "-" + item.id, title, titleOrig: title, image, banner, date: fmt, genres, type: category === "movie" ? "Film" : "Serie", score: Math.round((item.vote_average || 0) * 10), url: category === "movie" ? "https://www.themoviedb.org/movie/" + item.id : "https://www.themoviedb.org/tv/" + item.id, category };
+  return { id: category + "-" + item.id, title, titleOrig: title, image, banner, date: fmt, genres: genres.filter(Boolean), type: category === "movie" ? "Film" : "Serie", score: Math.round((item.vote_average || 0) * 10), url: category === "movie" ? "https://www.themoviedb.org/movie/" + item.id : "https://www.themoviedb.org/tv/" + item.id, category };
 }
 
-async function fetchTMDBPages(endpoint: string, params: Record<string, string>, maxPages = 5): Promise<TMDBItem[]> {
-  const key = process.env.TMDB_API_KEY;
-  if (!key) return [];
+async function fetchTMDBPages(endpoint: string, params: Record<string, string>, maxPages = 10): Promise<TMDBItem[]> {
+  const auth = getAuthHeader();
+  if (!auth.Authorization) return [];
   const all: TMDBItem[] = [];
-  const base = new URLSearchParams({ ...params, api_key: key });
+  const base = new URLSearchParams(params);
   for (let p = 1; p <= maxPages; p++) {
     base.set("page", String(p));
     try {
-      const res = await fetch(TMDB_BASE + endpoint + "?" + base.toString());
+      const res = await fetch(TMDB_BASE + endpoint + "?" + base.toString(), { headers: auth });
       if (!res.ok) break;
       const json = await res.json();
       all.push(...(json.results || []));
@@ -46,14 +53,26 @@ async function fetchTMDBPages(endpoint: string, params: Record<string, string>, 
   return all;
 }
 
-export async function fetchUpcomingMovies(): Promise<ReleaseItem[]> {
-  const today = new Date().toISOString().split("T")[0];
-  const items = await fetchTMDBPages("/discover/movie", { language: "de-DE", region: "DE", sort_by: "popularity.desc", "primary_release_date.gte": today, "vote_count.gte": "10" }, 5);
+export async function fetchUpcomingMovies(region = "DE"): Promise<ReleaseItem[]> {
+  const items = await fetchTMDBPages("/discover/movie", { language: "de-DE", region, sort_by: "primary_release_date.desc", "primary_release_date.gte": "2026-01-01", "primary_release_date.lte": "2026-12-31", "vote_count.gte": "5" }, 10);
   return items.map((m: TMDBItem) => mapToRelease(m, "movie"));
 }
 
-export async function fetchUpcomingTV(): Promise<ReleaseItem[]> {
-  const today = new Date().toISOString().split("T")[0];
-  const items = await fetchTMDBPages("/discover/tv", { language: "de-DE", sort_by: "popularity.desc", "first_air_date.gte": today, "vote_count.gte": "5" }, 5);
+export async function fetchUpcomingTV(region = "DE"): Promise<ReleaseItem[]> {
+  const items = await fetchTMDBPages("/discover/tv", { language: "de-DE", sort_by: "first_air_date.desc", "first_air_date.gte": "2026-01-01", "first_air_date.lte": "2026-12-31", "vote_count.gte": "3" }, 10);
+  return items.map((m: TMDBItem) => mapToRelease(m, "tv"));
+}
+
+export async function searchMovies(query: string, year?: string): Promise<ReleaseItem[]> {
+  const params: Record<string, string> = { language: "de-DE", query, sort_by: "popularity.desc", include_adult: "false" };
+  if (year) params["primary_release_year"] = year;
+  const items = await fetchTMDBPages("/search/movie", params, 3);
+  return items.map((m: TMDBItem) => mapToRelease(m, "movie"));
+}
+
+export async function searchTV(query: string, year?: string): Promise<ReleaseItem[]> {
+  const params: Record<string, string> = { language: "de-DE", query, sort_by: "popularity.desc", include_adult: "false" };
+  if (year) params["first_air_date_year"] = year;
+  const items = await fetchTMDBPages("/search/tv", params, 3);
   return items.map((m: TMDBItem) => mapToRelease(m, "tv"));
 }
