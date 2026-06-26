@@ -10,16 +10,20 @@ const CATEGORY_STYLES: Record<string, { bg: string; text: string; icon: string }
   movie: { bg: "bg-yellow-500/10", text: "text-yellow-400", icon: "🎬" },
 };
 
-export default function ReleaseCard({ item }: { item: ReleaseItem }) {
+interface Props {
+  item: ReleaseItem;
+  onClick: (item: ReleaseItem) => void;
+}
+
+export default function ReleaseCard({ item, onClick }: Props) {
   const style = CATEGORY_STYLES[item.category] || CATEGORY_STYLES.game;
 
   return (
-    <a
-      href={item.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`card-glow category-${item.category} block rounded-xl bg-[var(--card)] border border-[var(--border)] overflow-hidden hover:bg-[var(--card-hover)] transition-all duration-200 group`}
+    <button
+      onClick={() => onClick(item)}
+      className={`card-glow category-${item.category} text-left w-full rounded-xl bg-[var(--card)] border border-[var(--border)] overflow-hidden hover:bg-[var(--card-hover)] transition-all duration-200 group cursor-pointer`}
     >
+      {/* Cover Image */}
       <div className="aspect-[2/3] bg-zinc-800 relative overflow-hidden">
         {item.image ? (
           <img
@@ -34,9 +38,11 @@ export default function ReleaseCard({ item }: { item: ReleaseItem }) {
             <span className="text-xs text-center px-2">{item.title}</span>
           </div>
         )}
+        {/* Category Badge */}
         <span className={`absolute top-2 left-2 ${style.bg} ${style.text} text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider`}>
           {item.category}
         </span>
+        {/* Score Badge */}
         {item.score && (
           <span className="absolute top-2 right-2 bg-black/70 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
             {item.score}%
@@ -44,11 +50,13 @@ export default function ReleaseCard({ item }: { item: ReleaseItem }) {
         )}
       </div>
 
+      {/* Info */}
       <div className="p-3">
         <h3 className="text-sm font-semibold leading-tight line-clamp-2 group-hover:text-white transition-colors">
           {item.title}
         </h3>
         <p className="text-xs text-zinc-500 mt-1">{item.date}</p>
+        {/* Type/Platform tags */}
         <div className="flex flex-wrap gap-1 mt-2">
           {item.genres.slice(0, 3).map((g, i) => (
             <span key={i} className="text-[10px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded">
@@ -60,6 +68,6 @@ export default function ReleaseCard({ item }: { item: ReleaseItem }) {
           </span>
         </div>
       </div>
-    </a>
+    </button>
   );
 }
